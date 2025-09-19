@@ -37,7 +37,7 @@ const About = () => {
       contribution: 'AI integration'
     },
     {
-      name: 'Shirsha',
+      name: 'Shirsha Bansal',
       role: 'Presentation Lead',
       expertise: 'Content Creation & Storytelling',
       image: '👩‍🎨',
