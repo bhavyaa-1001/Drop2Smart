@@ -1,10 +1,20 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LocationSectionFree from '../components/LocationSectionFree';
+import { 
+  submitAssessment, 
+  uploadRooftopImage, 
+  formatAssessmentData,
+  pollAssessmentStatus,
+  APIError 
+} from '../utils/apiUtils';
+import Toast from '../components/Toast';
 
 const Assessment = () => {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedImage, setUploadedImage] = useState(null);
+  const [uploadedImageData, setUploadedImageData] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [formData, setFormData] = useState({
     roofArea: '',
     roofSlope: '',
@@ -15,6 +25,8 @@ const Assessment = () => {
     annualRainfall: ''
   });
   const [loading, setLoading] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -39,13 +51,32 @@ const Assessment = () => {
     }
   };
 
-  const handleFileUpload = (file) => {
+  const handleFileUpload = async (file) => {
     if (file && file.type.startsWith('image/')) {
+      // Show preview immediately
       const reader = new FileReader();
       reader.onload = (e) => {
         setUploadedImage(e.target.result);
       };
       reader.readAsDataURL(file);
+      
+      try {
+        // Upload to backend
+        setUploadProgress(0);
+        const uploadResponse = await uploadRooftopImage(file, (progress) => {
+          setUploadProgress(progress);
+        });
+        
+        if (uploadResponse.success) {
+          setUploadedImageData(uploadResponse.data);
+          showToast('Image uploaded successfully!', 'success');
+        }
+      } catch (error) {
+        console.error('Image upload failed:', error);
+        showToast('Image upload failed. You can still proceed with the assessment.', 'warning');
+      } finally {
+        setUploadProgress(0);
+      }
     }
   };
 
@@ -68,16 +99,83 @@ const Assessment = () => {
     // Handle location updates from LocationSection
     console.log('Location updated:', locationData);
   };
+  
+  // Toast helper function
+  const showToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 5000);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setProcessingStatus('Submitting assessment...');
     
-    // Simulate AI processing
-    setTimeout(() => {
+    try {
+      // Validate required fields
+      if (!formData.roofArea || !formData.roofSlope || !formData.roofMaterial || 
+          !formData.buildingHeight || !formData.location || !formData.annualRainfall ||
+          !formData.coordinates.lat || !formData.coordinates.lng) {
+        showToast('Please fill in all required fields.', 'error');
+        setLoading(false);
+        return;
+      }
+      
+      // Format assessment data
+      const assessmentData = formatAssessmentData(
+        formData, 
+        uploadedImageData,
+        { method: 'frontend-detected' }
+      );
+      
+      // Submit assessment
+      const submissionResponse = await submitAssessment(assessmentData);
+      
+      if (submissionResponse.success) {
+        const assessmentId = submissionResponse.data._id;
+        
+        showToast('Assessment submitted successfully! Processing...', 'success');
+        setProcessingStatus('Processing assessment with AI and ML models...');
+        
+        // Poll for results
+        const results = await pollAssessmentStatus(
+          assessmentId,
+          (statusUpdate) => {
+            setProcessingStatus(`Processing: ${statusUpdate.status}`);
+          },
+          30, // max attempts
+          3000 // 3 second intervals
+        );
+        
+        // Navigate to results with the assessment data
+        navigate('/results', {
+          state: {
+            assessmentResults: results.data,
+            formData,
+            image: uploadedImage
+          }
+        });
+      } else {
+        throw new Error(submissionResponse.message || 'Assessment submission failed');
+      }
+      
+    } catch (error) {
+      console.error('Assessment submission failed:', error);
+      
+      if (error instanceof APIError) {
+        if (error.code === 'ASSESSMENT_TIMEOUT_ERROR') {
+          showToast('Assessment is taking longer than expected. Please check results page later.', 'warning');
+          // Could redirect to a status page
+        } else {
+          showToast(`Assessment failed: ${error.message}`, 'error');
+        }
+      } else {
+        showToast('An unexpected error occurred. Please try again.', 'error');
+      }
+    } finally {
       setLoading(false);
-      navigate('/results', { state: { formData, image: uploadedImage } });
-    }, 3000);
+      setProcessingStatus('');
+    }
   };
 
   return (
@@ -254,12 +352,19 @@ const Assessment = () => {
               }`}
             >
               {loading ? (
-                <div className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Analyzing Rooftop...
+                <div className="flex items-center flex-col">
+                  <div className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    {processingStatus || 'Analyzing Rooftop...'}
+                  </div>
+                  {uploadProgress > 0 && (
+                    <div className="mt-2 text-sm text-white/80">
+                      Uploading: {uploadProgress}%
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center">
@@ -273,6 +378,15 @@ const Assessment = () => {
           </div>
         </form>
       </div>
+      
+      {/* Toast Notification */}
+      {toast.show && (
+        <Toast 
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ show: false, message: '', type: 'info' })}
+        />
+      )}
     </div>
   );
 };
