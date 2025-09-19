@@ -1,43 +1,58 @@
+
 const About = () => {
   const teamMembers = [
     {
-      name: 'Rajesh Kumar',
-      role: 'AI/ML Engineer',
-      expertise: 'Computer Vision & Deep Learning',
+      name: 'Bhavya Bansal',
+      role: 'MERN Stack Developer',
+      expertise: 'MongoDB, Express.js, React & Node.js',
       image: '👨‍💻',
-      contribution: 'Rooftop analysis algorithms'
+      contribution: 'Site development '
     },
     {
-      name: 'Priya Sharma',
-      role: 'Environmental Engineer',
-      expertise: 'Water Resources & Sustainability',
-      image: '👩‍🔬',
+      name: 'Kshitij',
+      role: 'ML Engineer',
+      expertise: 'Python, TensorFlow & OpenCV',
+      image: '👨‍💻',
       contribution: 'Rainwater harvesting models'
     },
     {
-      name: 'Amit Patel',
-      role: 'Full Stack Developer',
-      expertise: 'React, Node.js & Cloud',
+      name: 'Jatin Kumar',
+      role: 'UI/UX Designer',
+      expertise: 'Figma & Adobe XD',
       image: '👨‍💼',
       contribution: 'Platform architecture'
     },
     {
-      name: 'Sneha Reddy',
-      role: 'UI/UX Designer',
-      expertise: 'User Experience & Design',
+      name: 'Jiya',
+      role: 'Research Analyst',
+      expertise: 'Data Analysis & Environmental Studies',
+      image: '👩‍💻',
+      contribution: 'Sustainability research'
+    },
+    {
+      name: 'Shubham',
+      role: 'AI/ML Specialist',
+      expertise: 'RAG & NLP',
+      image: '👨‍💻',
+      contribution: 'AI integration'
+    },
+    {
+      name: 'Shirsha',
+      role: 'Presentation Lead',
+      expertise: 'Content Creation & Storytelling',
       image: '👩‍🎨',
-      contribution: 'Interface design & usability'
+      contribution: 'Pitch deck design'
     }
   ];
 
   const achievements = [
     {
       title: 'Smart India Hackathon 2025',
-      description: 'Selected for national finals',
-      icon: '🏆'
+      description: '',
+      icon: '🧠'
     },
     {
-      title: '95% Accuracy Rate',
+      title: '90% Accuracy Rate',
       description: 'AI-powered rooftop analysis',
       icon: '🎯'
     },
@@ -55,9 +70,12 @@ const About = () => {
 
   const techStack = [
     { name: 'React', description: 'Frontend Framework' },
+    { name: 'ExpressJs', description: 'Backend Framework' },
     { name: 'TailwindCSS', description: 'Styling & Design' },
     { name: 'Python', description: 'AI/ML Backend' },
-    { name: 'TensorFlow', description: 'Computer Vision' },
+    { name: 'PyTorch', description: 'Fine Tunning' },
+    { name: 'OpenCV', description: 'Computer Vision' },
+    { name: 'LangChain & LangGraph', description: 'RAG' },
     { name: 'Node.js', description: 'API Development' },
     { name: 'MongoDB', description: 'Database' }
   ];
@@ -154,9 +172,9 @@ const About = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-auto">
             {teamMembers.map((member, index) => (
-              <div key={index} className="card-glass text-center">
+              <div key={index} className="card-glass text-center fle">
                 <div className="text-6xl mb-4">{member.image}</div>
                 <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
                   {member.name}
@@ -205,12 +223,12 @@ const About = () => {
         {/* SIH 2025 Recognition */}
         <div className="card-glass text-center">
           <div className="mb-6">
-            <div className="text-6xl mb-4">🏆</div>
+            <div className="text-6xl mb-4">💧</div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Smart India Hackathon 2025 Finalist
+              Drop2Smart
             </h3>
             <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-6">
-              Drop2Smart has been selected as a finalist in Smart India Hackathon 2025, representing 
+              Representing 
               innovative solutions for India's water security challenges. Our platform addresses 
               the critical need for intelligent rainwater harvesting systems.
             </p>

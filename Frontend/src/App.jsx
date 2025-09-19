@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import Landing from './pages/Landing';
 import Assessment from './pages/Assessment';
 import Results from './pages/Results';
+import GeolocationTest from './components/GeolocationTest';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/assessment" element={<Assessment />} />
               <Route path="/results" element={<Results />} />
+              <Route path="/test-location" element={<GeolocationTest />} />
             </Routes>
           </main>
           <Footer />

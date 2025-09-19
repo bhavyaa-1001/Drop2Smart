@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LocationSectionFree from '../components/LocationSectionFree';
 
 const Assessment = () => {
   const [dragActive, setDragActive] = useState(false);
@@ -61,6 +62,11 @@ const Assessment = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleLocationChange = (locationData) => {
+    // Handle location updates from LocationSection
+    console.log('Location updated:', locationData);
   };
 
   const handleSubmit = async (e) => {
@@ -231,59 +237,12 @@ const Assessment = () => {
             </div>
           </div>
 
-          {/* Location Details */}
-          <div className="card-glass">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-              Location Information
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Address/Location
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  placeholder="Enter your building address"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Annual Rainfall (mm)
-                </label>
-                <input
-                  type="number"
-                  name="annualRainfall"
-                  value={formData.annualRainfall}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 1200"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300"
-                  required
-                />
-              </div>
-              
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Map Location
-                </label>
-                <div className="w-full h-32 bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center border border-gray-300 dark:border-gray-600">
-                  <div className="text-center">
-                    <svg className="w-8 h-8 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Map integration placeholder</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Free Location Section with OpenStreetMap */}
+          <LocationSectionFree 
+            formData={formData}
+            onFormDataChange={handleInputChange}
+            onLocationChange={handleLocationChange}
+          />
 
           {/* Submit Button */}
           <div className="text-center">

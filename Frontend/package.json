@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup": "node setup-env.js",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File setup-env.ps1"
   },
   "dependencies": {
     "react": "^19.1.1",
