@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import HowItWorks from '../components/HowItWorks';
 import Impact from '../components/Impact';
 import About from '../components/About';
@@ -32,6 +33,7 @@ const FloatingElement = ({ children, delay = 0 }) => {
 const Landing = () => {
   const [typedText, setTypedText] = useState('');
   const fullText = 'AI-Powered Rooftop Rainwater Potential';
+  const navigate = useNavigate();
   
   useEffect(() => {
     let index = 0;
@@ -95,7 +97,10 @@ const Landing = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
-              <button className="btn-primary text-lg px-8 py-4">
+              <button 
+                onClick={() => navigate('/assessment')}
+                className="btn-primary text-lg px-8 py-4"
+              >
                 Start Assessment
                 <svg className="w-5 h-5 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
