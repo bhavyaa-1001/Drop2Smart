@@ -74,7 +74,7 @@ const AssessmentSchema = new mongoose.Schema({
     },
     detectionMethod: {
       type: String,
-      enum: ['browser-geolocation', 'ip-detection', 'manual-input', 'address-search'],
+      enum: ['browser-geolocation', 'ip-detection', 'manual-input', 'address-search','frontend-detected'],
       default: 'manual-input'
     }
   },

@@ -30,8 +30,9 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
-      'http://localhost:3000',
       'http://127.0.0.1:3000',
+      'http://localhost:3000',
+      'http://localhost:5000',
       'http://localhost:5173', // Vite default port
       process.env.CORS_ORIGIN || 'http://localhost:3000'
     ];

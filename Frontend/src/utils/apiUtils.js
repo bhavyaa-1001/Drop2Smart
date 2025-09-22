@@ -34,7 +34,7 @@ export const API_CONFIG = {
     // Assessment endpoints
     ASSESSMENTS: '/api/assessments',
     ASSESSMENT_STATUS: (id) => `/api/assessments/${id}/status`,
-    ASSESSMENT_BY_ID: (assessmentId) => `/api/assessments/by-assessment-id/${assessmentId}`,
+    ASSESSMENT_BY_ID: (assessmentId) => `/api/assessments/${assessmentId}`,
     
     // Location endpoints
     LOCATIONS: '/api/locations',
@@ -49,6 +49,11 @@ export const API_CONFIG = {
     ML_SERVICE_HEALTH: '/health'
   }
 };
+export async function getAssessmentByMongoId(id) {
+  const res = await fetch(`http://localhost:5000/api/assessments/${id}`);
+  if (!res.ok) throw new Error(`Server error: ${res.status}`);
+  return await res.json();
+}
 
 /**
  * HTTP status codes
@@ -146,6 +151,7 @@ export const makeRequest = async (url, options = {}, retryCount = 0) => {
       throw new APIError(errorMessage, response.status, 'HTTP_ERROR', errorData);
     }
 
+    
     // Parse response
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {

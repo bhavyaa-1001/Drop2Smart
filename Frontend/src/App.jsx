@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Landing from './pages/Landing';
 import Assessment from './pages/Assessment';
+import AssessmentResult from './pages/AssessmentResult';
 import Results from './pages/Results';
 import GeolocationTest from './components/GeolocationTest';
 
@@ -17,6 +18,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/assessment" element={<Assessment />} />
+              <Route path="/api/assessments/${id}" element={<AssessmentResult />} />
               <Route path="/results" element={<Results />} />
               <Route path="/test-location" element={<GeolocationTest />} />
             </Routes>

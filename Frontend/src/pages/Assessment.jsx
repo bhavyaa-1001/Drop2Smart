@@ -148,13 +148,13 @@ const Assessment = () => {
         );
         
         // Navigate to results with the assessment data
-        navigate('/results', {
-          state: {
-            assessmentResults: results.data,
-            formData,
-            image: uploadedImage
-          }
-        });
+        navigate(`/results`, {
+  state: {
+    assessmentResults: results.data,   // optional if you also want to pass data
+    formData,
+    image: uploadedImage
+  }
+});
       } else {
         throw new Error(submissionResponse.message || 'Assessment submission failed');
       }

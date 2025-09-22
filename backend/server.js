@@ -23,20 +23,9 @@ connectDB();
 
 // CORS configuration - Must be before other middleware
 const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    process.env.CORS_ORIGIN || 'http://localhost:3000'
-  ],
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-    'Cache-Control'
-  ],
+  allowedHeaders: ['*'],
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -85,6 +74,14 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     service: 'Drop2Smart Backend API',
     version: '1.0.0'
+  });
+});
+
+// Test CORS endpoint
+app.get('/test-cors', (req, res) => {
+  res.json({
+    message: 'CORS is configured and this endpoint exists!',
+    time: new Date().toISOString()
   });
 });
 
