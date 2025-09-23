@@ -5,7 +5,7 @@ const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { formData, image } = location.state || {};
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('analysis');
 
   // Dummy calculated data based on form inputs
   const results = {
@@ -15,6 +15,31 @@ const Results = () => {
     co2Reduction: formData?.roofArea ? Math.round((formData.roofArea * 0.623 * (formData.annualRainfall || 1200)) / 1000 * 0.002) : 1.7,
     roofEfficiency: 85,
     complianceScore: 92
+  };
+
+  // Detailed assessment data matching the white background image
+  const detailedAssessment = {
+    locationInfo: {
+      latitude: formData?.coordinates?.lat || '28.7223752879827557',
+      longitude: formData?.coordinates?.lng || '77.0659870043089551'
+    },
+    soilProperties: {
+      soilTexture: 'CLAY LOAM',
+      organicCarbon: '1.38%',
+      clayContent: '27.7%',
+      siltContent: '37.7%',
+      sandContent: '34.7%'
+    },
+    hydraulicProperties: {
+      saturatedHydraulicConductivity: '10.75 mm/hr'
+    },
+    runoffAssessment: {
+      runoffCoefficient: '0.34'
+    },
+    interpretation: {
+      title: 'MODERATE RUNOFF POTENTIAL',
+      description: 'This area has average water infiltration. Some rainfall will become surface runoff during moderate to heavy precipitation events.'
+    }
   };
 
   const recommendations = [
@@ -147,8 +172,9 @@ const Results = () => {
         <div className="flex flex-wrap justify-center mb-8">
           <div className="glass rounded-lg p-2">
             {[
+              { id: 'analysis', name: 'Assessment Results' },
               { id: 'overview', name: 'Overview' },
-              { id: 'analysis', name: 'Detailed Analysis' },
+              { id: 'detailed-analysis', name: 'Detailed Analysis' },
               { id: 'recommendations', name: 'Recommendations' },
               { id: 'monitoring', name: 'Monitoring' }
             ].map((tab) => (
@@ -166,6 +192,137 @@ const Results = () => {
             ))}
           </div>
         </div>
+
+        {/* Detailed Assessment Results Section */}
+        {activeTab === 'analysis' && (
+          <div className="card-glass bg-white dark:bg-gray-800 p-8 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Location Information */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                    Location Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Latitude</div>
+                      <div className="text-lg font-mono text-gray-900 dark:text-white">
+                        {detailedAssessment.locationInfo.latitude}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Longitude</div>
+                      <div className="text-lg font-mono text-gray-900 dark:text-white">
+                        {detailedAssessment.locationInfo.longitude}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hydraulic Properties */}
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                    Hydraulic Properties
+                  </h3>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Saturated Hydraulic Conductivity (Ksat)
+                    </div>
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {detailedAssessment.hydraulicProperties.saturatedHydraulicConductivity}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Soil Properties */}
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  Soil Properties
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-600">
+                        <th className="text-left py-2 px-3 font-medium text-gray-600 dark:text-gray-400">Soil Texture</th>
+                        <th className="text-left py-2 px-3 font-medium text-gray-600 dark:text-gray-400">Organic Carbon</th>
+                        <th className="text-left py-2 px-3 font-medium text-gray-600 dark:text-gray-400">Clay Content</th>
+                        <th className="text-left py-2 px-3 font-medium text-gray-600 dark:text-gray-400">Silt Content</th>
+                        <th className="text-left py-2 px-3 font-medium text-gray-600 dark:text-gray-400">Sand Content</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="py-3 px-3 font-semibold text-gray-900 dark:text-white">
+                          {detailedAssessment.soilProperties.soilTexture}
+                        </td>
+                        <td className="py-3 px-3 text-gray-900 dark:text-white">
+                          {detailedAssessment.soilProperties.organicCarbon}
+                        </td>
+                        <td className="py-3 px-3 text-gray-900 dark:text-white">
+                          {detailedAssessment.soilProperties.clayContent}
+                        </td>
+                        <td className="py-3 px-3 text-gray-900 dark:text-white">
+                          {detailedAssessment.soilProperties.siltContent}
+                        </td>
+                        <td className="py-3 px-3 text-gray-900 dark:text-white">
+                          {detailedAssessment.soilProperties.sandContent}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Runoff Assessment */}
+            <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-600">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                    Runoff Assessment
+                  </h3>
+                  <div className="text-center">
+                    <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                      Runoff Coefficient
+                    </div>
+                    <div className="text-6xl font-bold text-blue-500 dark:text-blue-400 mb-2">
+                      {detailedAssessment.runoffAssessment.runoffCoefficient}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                      Interpretation
+                    </h3>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border-l-4 border-yellow-400">
+                      <div className="font-bold text-yellow-800 dark:text-yellow-200 mb-2">
+                        {detailedAssessment.interpretation.title}
+                      </div>
+                      <div className="text-yellow-700 dark:text-yellow-300 text-sm leading-relaxed">
+                        {detailedAssessment.interpretation.description}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Continue to Assessment Results Button */}
+            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600 text-center">
+              <button 
+                onClick={() => setActiveTab('overview')}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-300 inline-flex items-center"
+              >
+                Continue to Assessment Results
+                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab Content */}
         <div className="space-y-8">
@@ -267,7 +424,7 @@ const Results = () => {
             </div>
           )}
 
-          {activeTab === 'analysis' && (
+          {activeTab === 'detailed-analysis' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="card-glass">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
