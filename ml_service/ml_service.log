@@ -1,0 +1,4 @@
+2025-10-02 20:05:37,034 - soil_predictor - WARNING - SoilGrids returned None for sand, using default: 400
+2025-10-02 20:05:37,511 - soil_predictor - WARNING - SoilGrids returned None for silt, using default: 350
+2025-10-02 20:05:38,082 - soil_predictor - WARNING - SoilGrids returned None for clay, using default: 250
+2025-10-02 20:05:38,595 - soil_predictor - WARNING - SoilGrids returned None for ocd, using default: 15
