@@ -23,6 +23,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from soil_predictor import SoilPredictor, SoilData, PredictionRequest
 from utils import setup_logging, get_soil_properties, classify_soil_texture
+from groundwater_service import GroundwaterService
+from rainfall_service import RainfallService
 
 # Setup logging
 logger = setup_logging()
@@ -45,17 +47,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global model instance
+# Global service instances
 predictor: Optional[SoilPredictor] = None
+groundwater_service: Optional[GroundwaterService] = None
+rainfall_service: Optional[RainfallService] = None
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the ML model on startup"""
-    global predictor
+    """Initialize the ML model and services on startup"""
+    global predictor, groundwater_service, rainfall_service
     try:
         logger.info("🚀 Initializing ML Service...")
+        
+        # Initialize Ksat predictor
         predictor = SoilPredictor()
         await predictor.initialize()
+        logger.info("✅ Ksat Predictor initialized")
+        
+        # Initialize groundwater service
+        groundwater_service = GroundwaterService()
+        logger.info("✅ Groundwater Service initialized")
+        
+        # Initialize rainfall service
+        rainfall_service = RainfallService(cache_expire_days=7)
+        logger.info("✅ Rainfall Service initialized")
+        
         logger.info("✅ ML Service initialized successfully!")
     except Exception as e:
         logger.error(f"❌ Failed to initialize ML service: {e}")
@@ -74,7 +90,13 @@ async def root():
             "predict": "/predict-ksat",
             "batch_predict": "/batch-predict-ksat",
             "soil_data": "/soil-data",
-            "model_info": "/model-info"
+            "model_info": "/model-info",
+            "groundwater": "/groundwater",
+            "groundwater_analysis": "/groundwater-analysis",
+            "locations_search": "/locations-search",
+            "rainfall": "/rainfall",
+            "rainfall_average": "/rainfall-average",
+            "rainfall_analysis": "/rainfall-analysis"
         },
         "timestamp": datetime.now().isoformat()
     }
@@ -342,6 +364,309 @@ async def classify_texture(sand: float, silt: float, clay: float):
     except Exception as e:
         logger.error(f"❌ Texture classification failed: {e}")
         raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
+
+@app.get("/groundwater")
+async def get_groundwater_data(state: str, district: str, location: str):
+    """
+    Get groundwater data for a specific location
+    
+    Args:
+        state: State name (e.g., "Delhi", "Haryana")
+        district: District name (e.g., "North Delhi", "Jhajjar")
+        location: Location name (e.g., "Narela", "Bahadurgarh")
+        
+    Returns:
+        dict: Groundwater level data
+    """
+    global groundwater_service
+    
+    if not groundwater_service:
+        raise HTTPException(status_code=503, detail="Groundwater service not initialized")
+    
+    try:
+        data = groundwater_service.get_location_data(state, district, location)
+        
+        if not data:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Location not found: {state} > {district} > {location}"
+            )
+        
+        return {
+            "location": {
+                "state": data.state,
+                "district": data.district,
+                "location": data.location
+            },
+            "groundwater_data": {
+                "annual_replenishable_gw": data.annual_replenishable_gw,
+                "net_availability": data.net_availability,
+                "total_draft": data.total_draft,
+                "stage_percent": data.stage_percent,
+                "category": data.category
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to get groundwater data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve data: {str(e)}")
+
+@app.get("/groundwater-analysis")
+async def analyze_groundwater(state: str, district: str, location: str):
+    """
+    Get comprehensive groundwater risk analysis for a location
+    
+    Args:
+        state: State name
+        district: District name
+        location: Location name
+        
+    Returns:
+        dict: Comprehensive groundwater analysis
+    """
+    global groundwater_service
+    
+    if not groundwater_service:
+        raise HTTPException(status_code=503, detail="Groundwater service not initialized")
+    
+    try:
+        analysis = groundwater_service.analyze_location_risk(state, district, location)
+        
+        if analysis.get('status') == 'error':
+            raise HTTPException(status_code=404, detail=analysis.get('message'))
+        
+        return {
+            **analysis,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Groundwater analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@app.get("/locations-search")
+async def search_locations(query: str):
+    """
+    Search for locations matching a query
+    
+    Args:
+        query: Search query string
+        
+    Returns:
+        dict: List of matching locations
+    """
+    global groundwater_service
+    
+    if not groundwater_service:
+        raise HTTPException(status_code=503, detail="Groundwater service not initialized")
+    
+    try:
+        results = groundwater_service.search_locations(query)
+        
+        return {
+            "query": query,
+            "results": results,
+            "count": len(results),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Location search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@app.get("/groundwater-stats")
+async def get_groundwater_statistics():
+    """
+    Get overall groundwater category statistics
+    
+    Returns:
+        dict: Statistics about groundwater categories
+    """
+    global groundwater_service
+    
+    if not groundwater_service:
+        raise HTTPException(status_code=503, detail="Groundwater service not initialized")
+    
+    try:
+        stats = groundwater_service.get_category_statistics()
+        states = groundwater_service.get_all_states()
+        
+        return {
+            "category_statistics": stats,
+            "available_states": states,
+            "total_locations": sum(stats.values()),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to get statistics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve statistics: {str(e)}")
+
+@app.get("/rainfall")
+async def get_rainfall_data(
+    latitude: float,
+    longitude: float,
+    years: int = 30,
+    include_monthly: bool = True,
+    include_peak: bool = True
+):
+    """
+    Get rainfall data for a specific location
+    
+    Args:
+        latitude: Latitude coordinate
+        longitude: Longitude coordinate
+        years: Number of years to analyze (default: 30, max: 50)
+        include_monthly: Include monthly breakdown (default: True)
+        include_peak: Include peak rainfall day (default: True)
+        
+    Returns:
+        dict: Rainfall data including total, average annual, and optional breakdowns
+    """
+    global rainfall_service
+    
+    if not rainfall_service:
+        raise HTTPException(status_code=503, detail="Rainfall service not initialized")
+    
+    # Validate inputs
+    if not (-90 <= latitude <= 90):
+        raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90")
+    
+    if not (-180 <= longitude <= 180):
+        raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
+    
+    if not (1 <= years <= 50):
+        raise HTTPException(status_code=400, detail="Years must be between 1 and 50")
+    
+    try:
+        data = await rainfall_service.get_rainfall_data(
+            latitude,
+            longitude,
+            years=years,
+            include_monthly=include_monthly,
+            include_peak=include_peak
+        )
+        
+        return {
+            **data,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to get rainfall data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve rainfall data: {str(e)}")
+
+@app.get("/rainfall-average")
+async def get_average_annual_rainfall(
+    latitude: float,
+    longitude: float,
+    years: int = 30
+):
+    """
+    Get average annual rainfall for a specific location (simplified endpoint)
+    
+    Args:
+        latitude: Latitude coordinate
+        longitude: Longitude coordinate
+        years: Number of years to analyze (default: 30, max: 50)
+        
+    Returns:
+        dict: Average annual rainfall in millimeters
+    """
+    global rainfall_service
+    
+    if not rainfall_service:
+        raise HTTPException(status_code=503, detail="Rainfall service not initialized")
+    
+    # Validate inputs
+    if not (-90 <= latitude <= 90):
+        raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90")
+    
+    if not (-180 <= longitude <= 180):
+        raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
+    
+    if not (1 <= years <= 50):
+        raise HTTPException(status_code=400, detail="Years must be between 1 and 50")
+    
+    try:
+        average_rainfall = await rainfall_service.get_average_annual_rainfall(
+            latitude,
+            longitude,
+            years=years
+        )
+        
+        return {
+            "coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "average_annual_rainfall_mm": average_rainfall,
+            "years_analyzed": years,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to get average rainfall: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve average rainfall: {str(e)}")
+
+@app.get("/rainfall-analysis")
+async def analyze_rainfall_pattern(
+    latitude: float,
+    longitude: float,
+    years: int = 30
+):
+    """
+    Get comprehensive rainfall pattern analysis
+    
+    Args:
+        latitude: Latitude coordinate
+        longitude: Longitude coordinate
+        years: Number of years to analyze (default: 30, max: 50)
+        
+    Returns:
+        dict: Detailed rainfall analysis including statistics and categorization
+    """
+    global rainfall_service
+    
+    if not rainfall_service:
+        raise HTTPException(status_code=503, detail="Rainfall service not initialized")
+    
+    # Validate inputs
+    if not (-90 <= latitude <= 90):
+        raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90")
+    
+    if not (-180 <= longitude <= 180):
+        raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
+    
+    if not (1 <= years <= 50):
+        raise HTTPException(status_code=400, detail="Years must be between 1 and 50")
+    
+    try:
+        analysis = await rainfall_service.analyze_rainfall_pattern(
+            latitude,
+            longitude,
+            years=years
+        )
+        
+        return {
+            **analysis,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to analyze rainfall: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to analyze rainfall: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

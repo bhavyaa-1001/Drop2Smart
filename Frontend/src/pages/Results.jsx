@@ -1,89 +1,443 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getAssessmentResults } from '../utils/apiUtils';
+import Toast from '../components/Toast';
+import { 
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart 
+} from 'recharts';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { formData, image } = location.state || {};
+  const { assessmentResults, formData, image } = location.state || {};
   const [activeTab, setActiveTab] = useState('analysis');
+  const [assessment, setAssessment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
-  // Dummy calculated data based on form inputs
-  const results = {
-    annualRainwaterPotential: formData?.roofArea ? Math.round((formData.roofArea * 0.623 * (formData.annualRainfall || 1200)) / 1000) : 850,
-    monthlyAverage: formData?.roofArea ? Math.round(((formData.roofArea * 0.623 * (formData.annualRainfall || 1200)) / 1000) / 12) : 71,
-    costSavings: formData?.roofArea ? Math.round((formData.roofArea * 0.623 * (formData.annualRainfall || 1200)) / 1000 * 0.5) : 425,
-    co2Reduction: formData?.roofArea ? Math.round((formData.roofArea * 0.623 * (formData.annualRainfall || 1200)) / 1000 * 0.002) : 1.7,
-    roofEfficiency: 85,
-    complianceScore: 92
+  // Fetch assessment data from backend
+  useEffect(() => {
+    const fetchAssessmentData = async () => {
+      try {
+        setLoading(true);
+        
+        // If we have assessmentResults passed from Assessment page, use it
+        if (assessmentResults) {
+          setAssessment(assessmentResults);
+          setLoading(false);
+          return;
+        }
+        
+        // Otherwise, if we have formData with an assessment ID, fetch it
+        if (formData?.assessmentId) {
+          const response = await getAssessmentResults(formData.assessmentId);
+          setAssessment(response.data || response);
+          setLoading(false);
+          return;
+        }
+        
+        // No data available
+        setError('No assessment data available');
+        setLoading(false);
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.error('Error fetching assessment:', err);
+        }
+        setError(err.message || 'Failed to load assessment data');
+        setLoading(false);
+        showToast('Failed to load assessment data', 'error');
+      }
+    };
+
+    fetchAssessmentData();
+  }, [assessmentResults, formData]);
+
+  const showToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 5000);
   };
 
-  // Detailed assessment data matching the white background image
-  const detailedAssessment = {
-    locationInfo: {
-      latitude: formData?.coordinates?.lat || '28.7223752879827557',
-      longitude: formData?.coordinates?.lng || '77.0659870043089551'
-    },
-    soilProperties: {
-      soilTexture: 'CLAY LOAM',
-      organicCarbon: '1.38%',
-      clayContent: '27.7%',
-      siltContent: '37.7%',
-      sandContent: '34.7%'
-    },
-    hydraulicProperties: {
-      saturatedHydraulicConductivity: '10.75 mm/hr'
-    },
-    runoffAssessment: {
-      runoffCoefficient: '0.34'
-    },
-    interpretation: {
-      title: 'MODERATE RUNOFF POTENTIAL',
-      description: 'This area has average water infiltration. Some rainfall will become surface runoff during moderate to heavy precipitation events.'
+  // Extract data from assessment with fallbacks
+  const getDisplayData = () => {
+    if (!assessment) return null;
+
+    // Extract real data from backend
+    const results = assessment.results || {};
+    const mlPredictions = assessment.mlPredictions || {};
+    const environmentalData = assessment.environmentalData || {};
+    const buildingDetails = assessment.buildingDetails || formData || {};
+    const locationData = assessment.location || {};
+
+    return {
+      // Harvesting Potential (from backend calculations)
+      annualRainwaterPotential: results.harvestingPotential?.annualCollection || 0,
+      monthlyAverage: results.harvestingPotential?.averageMonthlyCollection || 0,
+      peakMonthly: results.harvestingPotential?.peakMonthlyCollection || 0,
+      
+      // Environmental Impact (from backend)
+      costSavings: results.environmentalImpact?.costSavings || 0,
+      co2Reduction: results.environmentalImpact?.carbonFootprintReduction || 0,
+      waterSaved: results.environmentalImpact?.waterSaved || 0,
+      
+      // Assessment Score (from backend)
+      assessmentScore: results.assessmentScore || 0,
+      roofEfficiency: buildingDetails.roofMaterial === 'metal' ? 95 : 
+                      buildingDetails.roofMaterial === 'concrete' ? 90 :
+                      buildingDetails.roofMaterial === 'tiles' ? 85 : 80,
+      
+      // Location Info (real coordinates)
+      locationInfo: {
+        latitude: locationData.coordinates?.latitude || formData?.coordinates?.lat || 'N/A',
+        longitude: locationData.coordinates?.longitude || formData?.coordinates?.lng || 'N/A',
+        address: locationData.address || formData?.location || 'N/A'
+      },
+      
+      // Soil Properties (from ML predictions - REAL DATA!)
+      soilProperties: {
+        soilTexture: mlPredictions.soilAnalysis?.texture_class || 
+                     environmentalData.soilData?.soilType || 'Unknown',
+        organicCarbon: environmentalData.soilData?.organicCarbon 
+          ? `${(environmentalData.soilData.organicCarbon * 100).toFixed(2)}%` 
+          : 'N/A',
+        clayContent: environmentalData.soilData?.clay 
+          ? `${environmentalData.soilData.clay.toFixed(1)}%` 
+          : 'N/A',
+        siltContent: environmentalData.soilData?.silt 
+          ? `${environmentalData.soilData.silt.toFixed(1)}%` 
+          : 'N/A',
+        sandContent: environmentalData.soilData?.sand 
+          ? `${environmentalData.soilData.sand.toFixed(1)}%` 
+          : 'N/A'
+      },
+      
+      // Hydraulic Properties (from ML predictions - REAL KSAT!)
+      hydraulicProperties: {
+        saturatedHydraulicConductivity: environmentalData.soilData?.ksat 
+          ? `${environmentalData.soilData.ksat.toFixed(2)} mm/hr` 
+          : 'N/A',
+        confidence: mlPredictions.ksatPrediction?.confidence 
+          ? `${(mlPredictions.ksatPrediction.confidence * 100).toFixed(0)}%` 
+          : 'N/A'
+      },
+      
+      // Infiltration Analysis (from backend)
+      infiltrationAnalysis: results.infiltrationAnalysis || {},
+      
+      // Runoff Assessment (calculated from soil data)
+      runoffAssessment: {
+        runoffCoefficient: buildingDetails.roofMaterial === 'metal' ? '0.95' :
+                          buildingDetails.roofMaterial === 'concrete' ? '0.90' :
+                          buildingDetails.roofMaterial === 'tiles' ? '0.85' : '0.80'
+      },
+      
+      // Interpretation (from ML predictions)
+      interpretation: {
+        title: mlPredictions.soilAnalysis?.infiltrationCategory 
+          ? `${mlPredictions.soilAnalysis.infiltrationCategory.toUpperCase()} INFILTRATION POTENTIAL`
+          : 'INFILTRATION ASSESSMENT',
+        description: results.infiltrationAnalysis?.soilSuitability || 
+                    'Soil infiltration characteristics determined by ML analysis.'
+      },
+      
+      // System Recommendations (from backend)
+      recommendations: [
+        {
+          type: 'Storage Tank',
+          capacity: `${Math.round(results.systemRecommendations?.tankSize || 5000)}L`,
+          cost: `₹${(results.systemRecommendations?.estimatedCost || 50000).toLocaleString()}`,
+          description: results.systemRecommendations?.filterType || 
+                      'Underground concrete tank with first-flush diverter'
+        },
+        {
+          type: 'Pipe System',
+          capacity: results.systemRecommendations?.pipeSize || '4 inch',
+          cost: `₹${(15000).toLocaleString()}`,
+          description: 'PVC pipes with proper gradient for water flow'
+        },
+        {
+          type: 'Filtration',
+          capacity: 'Multi-stage',
+          cost: `₹${(25000).toLocaleString()}`,
+          description: 'First flush + Sand filter + Carbon filter'
+        }
+      ],
+      
+      // Groundwater Status (from backend ML service)
+      groundwaterStatus: results.systemRecommendations?.groundwaterStatus || null,
+      groundwaterRecommendations: results.systemRecommendations?.groundwaterRecommendations || [],
+      rechargePriority: results.systemRecommendations?.rechargePriority || null,
+      
+      // Monthly Collection (from backend - REAL DATA!)
+      monthlyData: results.harvestingPotential?.monthlyCollection || [],
+      
+      // Building Details
+      buildingDetails: buildingDetails,
+      
+      // Raw assessment data for debugging
+      rawAssessment: assessment
+    };
+  };
+
+  const displayData = getDisplayData();
+
+  // Chart colors
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+  // PDF Export Function
+  const generatePDF = async () => {
+    try {
+      setGeneratingPDF(true);
+      setToast({ show: true, message: 'Generating PDF report...', type: 'info' });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let yPos = 20;
+
+      // Header
+      pdf.setFontSize(22);
+      pdf.setTextColor(59, 130, 246);
+      pdf.text('Drop2Smart - Rainwater Harvesting Report', pageWidth / 2, yPos, { align: 'center' });
+      
+      yPos += 10;
+      pdf.setFontSize(12);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Assessment Date: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPos, { align: 'center' });
+      pdf.text(`Location: ${displayData.locationInfo.address}`, pageWidth / 2, yPos + 6, { align: 'center' });
+
+      yPos += 20;
+
+      // Key Metrics Section
+      pdf.setFontSize(16);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Key Metrics', 14, yPos);
+      yPos += 10;
+
+      pdf.autoTable({
+        startY: yPos,
+        head: [['Metric', 'Value']],
+        body: [
+          ['Annual Rainwater Potential', `${displayData.annualRainwaterPotential.toLocaleString()} L`],
+          ['Annual Cost Savings', `₹${displayData.costSavings.toLocaleString()}`],
+          ['CO₂ Reduction per Year', `${displayData.co2Reduction} kg`],
+          ['Assessment Score', `${displayData.assessmentScore}%`],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      yPos = pdf.lastAutoTable.finalY + 15;
+
+      // Building Details
+      if (yPos > pageHeight - 60) {
+        pdf.addPage();
+        yPos = 20;
+      }
+      
+      pdf.setFontSize(16);
+      pdf.text('Building Details', 14, yPos);
+      yPos += 10;
+
+      pdf.autoTable({
+        startY: yPos,
+        head: [['Property', 'Value']],
+        body: [
+          ['Roof Area', `${displayData.buildingDetails.roofArea} sq ft`],
+          ['Roof Material', displayData.buildingDetails.roofMaterial],
+          ['Building Height', `${displayData.buildingDetails.buildingHeight} ft`],
+          ['Building Type', displayData.buildingDetails.buildingType || 'Residential'],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      yPos = pdf.lastAutoTable.finalY + 15;
+
+      // Soil Properties
+      if (yPos > pageHeight - 60) {
+        pdf.addPage();
+        yPos = 20;
+      }
+
+      pdf.setFontSize(16);
+      pdf.text('Soil Analysis (ML Predictions)', 14, yPos);
+      yPos += 10;
+
+      pdf.autoTable({
+        startY: yPos,
+        head: [['Property', 'Value']],
+        body: [
+          ['Soil Texture', displayData.soilProperties.soilTexture],
+          ['Clay Content', displayData.soilProperties.clayContent],
+          ['Silt Content', displayData.soilProperties.siltContent],
+          ['Sand Content', displayData.soilProperties.sandContent],
+          ['Organic Carbon', displayData.soilProperties.organicCarbon],
+          ['Saturated Hydraulic Conductivity', displayData.hydraulicProperties.saturatedHydraulicConductivity],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [16, 185, 129] },
+      });
+
+      yPos = pdf.lastAutoTable.finalY + 15;
+
+      // System Recommendations
+      if (yPos > pageHeight - 60) {
+        pdf.addPage();
+        yPos = 20;
+      }
+
+      pdf.setFontSize(16);
+      pdf.text('System Recommendations', 14, yPos);
+      yPos += 10;
+
+      const recommendations = displayData.recommendations.map(rec => [
+        rec.type,
+        rec.capacity,
+        rec.cost,
+        rec.description
+      ]);
+
+      pdf.autoTable({
+        startY: yPos,
+        head: [['Type', 'Capacity', 'Cost', 'Description']],
+        body: recommendations,
+        theme: 'grid',
+        headStyles: { fillColor: [139, 92, 246] },
+        columnStyles: {
+          3: { cellWidth: 60 }
+        }
+      });
+
+      yPos = pdf.lastAutoTable.finalY + 15;
+
+      // Groundwater Status
+      if (displayData.groundwaterStatus) {
+        if (yPos > pageHeight - 60) {
+          pdf.addPage();
+          yPos = 20;
+        }
+
+        pdf.setFontSize(16);
+        pdf.text('Groundwater Status', 14, yPos);
+        yPos += 10;
+
+        pdf.autoTable({
+          startY: yPos,
+          head: [['Parameter', 'Value']],
+          body: [
+            ['Category', displayData.groundwaterStatus.category],
+            ['Extraction Level', `${displayData.groundwaterStatus.stagePercent}%`],
+            ['Risk Level', displayData.groundwaterStatus.riskLevel],
+            ['Recharge Priority', displayData.rechargePriority || 'N/A'],
+          ],
+          theme: 'grid',
+          headStyles: { fillColor: [239, 68, 68] },
+        });
+
+        if (displayData.groundwaterRecommendations && displayData.groundwaterRecommendations.length > 0) {
+          yPos = pdf.lastAutoTable.finalY + 10;
+          if (yPos > pageHeight - 40) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          pdf.setFontSize(12);
+          pdf.text('Groundwater Recommendations:', 14, yPos);
+          yPos += 8;
+          pdf.setFontSize(10);
+          displayData.groundwaterRecommendations.forEach((rec, idx) => {
+            if (yPos > pageHeight - 20) {
+              pdf.addPage();
+              yPos = 20;
+            }
+            pdf.text(`${idx + 1}. ${rec}`, 14, yPos);
+            yPos += 6;
+          });
+        }
+      }
+
+      // Monthly Collection Data
+      if (displayData.monthlyData && displayData.monthlyData.length > 0) {
+        pdf.addPage();
+        yPos = 20;
+
+        pdf.setFontSize(16);
+        pdf.text('Monthly Collection Breakdown', 14, yPos);
+        yPos += 10;
+
+        const monthlyTableData = displayData.monthlyData.map(month => [
+          month.month,
+          `${month.volume.toLocaleString()} L`,
+          `${month.percentage}%`
+        ]);
+
+        pdf.autoTable({
+          startY: yPos,
+          head: [['Month', 'Volume', 'Percentage']],
+          body: monthlyTableData,
+          theme: 'striped',
+          headStyles: { fillColor: [59, 130, 246] },
+        });
+      }
+
+      // Footer
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(
+          `Generated by Drop2Smart | Page ${i} of ${totalPages}`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Save PDF
+      pdf.save(`Drop2Smart-Assessment-${new Date().getTime()}.pdf`);
+      
+      setToast({ show: true, message: 'PDF report generated successfully!', type: 'success' });
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('PDF generation error:', error);
+      }
+      setToast({ show: true, message: 'Failed to generate PDF report', type: 'error' });
+    } finally {
+      setGeneratingPDF(false);
+      setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
     }
   };
 
-  const recommendations = [
-    {
-      type: 'Storage Tank',
-      capacity: `${Math.round(results.annualRainwaterPotential * 0.15)}L`,
-      cost: `₹${Math.round(results.annualRainwaterPotential * 0.15 * 2.5).toLocaleString()}`,
-      description: 'Underground concrete tank with first-flush diverter'
-    },
-    {
-      type: 'Filtration System',
-      capacity: 'Multi-stage',
-      cost: `₹${(25000).toLocaleString()}`,
-      description: 'Sand filter + Carbon filter + UV sterilization'
-    },
-    {
-      type: 'Recharge Structure',
-      capacity: '500L/hr',
-      cost: `₹${(15000).toLocaleString()}`,
-      description: 'Percolation pit with gravel layers'
-    }
-  ];
-
-  const monthlyData = [
-    { month: 'Jan', collection: 45, usage: 40 },
-    { month: 'Feb', collection: 38, usage: 35 },
-    { month: 'Mar', collection: 52, usage: 48 },
-    { month: 'Apr', collection: 28, usage: 25 },
-    { month: 'May', collection: 15, usage: 18 },
-    { month: 'Jun', collection: 95, usage: 85 },
-    { month: 'Jul', collection: 125, usage: 110 },
-    { month: 'Aug', collection: 135, usage: 120 },
-    { month: 'Sep', collection: 88, usage: 82 },
-    { month: 'Oct', collection: 65, usage: 60 },
-    { month: 'Nov', collection: 42, usage: 38 },
-    { month: 'Dec', collection: 48, usage: 45 }
-  ];
-
-  if (!formData) {
+  // Loading state
+  if (loading) {
     return (
       <div className="min-h-screen pt-20 pb-16 flex items-center justify-center">
         <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-xl text-gray-600 dark:text-gray-400">Loading assessment results...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !displayData) {
+    return (
+      <div className="min-h-screen pt-20 pb-16 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 text-red-500">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            No assessment data found
+            {error || 'No assessment data found'}
           </h1>
           <button 
             onClick={() => navigate('/assessment')}
@@ -107,6 +461,42 @@ const Results = () => {
           <p className="text-xl text-gray-600 dark:text-gray-300">
             Analysis for {formData.location}
           </p>
+          
+          {/* Export Buttons */}
+          <div className="flex justify-center gap-4 mt-6">
+            <button
+              onClick={generatePDF}
+              disabled={generatingPDF}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingPDF ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export PDF Report
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={() => navigate('/assessment')}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg font-medium hover:from-primary-600 hover:to-secondary-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              </svg>
+              New Assessment
+            </button>
+          </div>
         </div>
 
         {/* Key Metrics */}
@@ -118,7 +508,7 @@ const Results = () => {
               </svg>
             </div>
             <h3 className="text-3xl font-bold text-gradient mb-2">
-              {results.annualRainwaterPotential.toLocaleString()}L
+              {displayData.annualRainwaterPotential.toLocaleString()}L
             </h3>
             <p className="text-gray-600 dark:text-gray-400 font-medium">
               Annual Rainwater Potential
@@ -132,7 +522,7 @@ const Results = () => {
               </svg>
             </div>
             <h3 className="text-3xl font-bold text-gradient mb-2">
-              ₹{results.costSavings.toLocaleString()}
+              ₹{displayData.costSavings.toLocaleString()}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 font-medium">
               Annual Cost Savings
@@ -146,7 +536,7 @@ const Results = () => {
               </svg>
             </div>
             <h3 className="text-3xl font-bold text-gradient mb-2">
-              {results.co2Reduction}T
+              {displayData.co2Reduction}kg
             </h3>
             <p className="text-gray-600 dark:text-gray-400 font-medium">
               CO₂ Reduction/Year
@@ -160,10 +550,10 @@ const Results = () => {
               </svg>
             </div>
             <h3 className="text-3xl font-bold text-gradient mb-2">
-              {results.complianceScore}%
+              {displayData.assessmentScore}%
             </h3>
             <p className="text-gray-600 dark:text-gray-400 font-medium">
-              Compliance Score
+              Assessment Score
             </p>
           </div>
         </div>
@@ -207,13 +597,13 @@ const Results = () => {
                     <div>
                       <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Latitude</div>
                       <div className="text-lg font-mono text-gray-900 dark:text-white">
-                        {detailedAssessment.locationInfo.latitude}
+                        {displayData.locationInfo.latitude}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Longitude</div>
                       <div className="text-lg font-mono text-gray-900 dark:text-white">
-                        {detailedAssessment.locationInfo.longitude}
+                        {displayData.locationInfo.longitude}
                       </div>
                     </div>
                   </div>
@@ -229,7 +619,10 @@ const Results = () => {
                       Saturated Hydraulic Conductivity (Ksat)
                     </div>
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {detailedAssessment.hydraulicProperties.saturatedHydraulicConductivity}
+                      {displayData.hydraulicProperties.saturatedHydraulicConductivity}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      ML Confidence: {displayData.hydraulicProperties.confidence}
                     </div>
                   </div>
                 </div>
@@ -254,25 +647,82 @@ const Results = () => {
                     <tbody>
                       <tr>
                         <td className="py-3 px-3 font-semibold text-gray-900 dark:text-white">
-                          {detailedAssessment.soilProperties.soilTexture}
+                          {displayData.soilProperties.soilTexture}
                         </td>
                         <td className="py-3 px-3 text-gray-900 dark:text-white">
-                          {detailedAssessment.soilProperties.organicCarbon}
+                          {displayData.soilProperties.organicCarbon}
                         </td>
                         <td className="py-3 px-3 text-gray-900 dark:text-white">
-                          {detailedAssessment.soilProperties.clayContent}
+                          {displayData.soilProperties.clayContent}
                         </td>
                         <td className="py-3 px-3 text-gray-900 dark:text-white">
-                          {detailedAssessment.soilProperties.siltContent}
+                          {displayData.soilProperties.siltContent}
                         </td>
                         <td className="py-3 px-3 text-gray-900 dark:text-white">
-                          {detailedAssessment.soilProperties.sandContent}
+                          {displayData.soilProperties.sandContent}
                         </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
+            </div>
+
+            {/* Soil Composition Chart */}
+            <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-600">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                Soil Composition Analysis
+              </h3>
+              {(() => {
+                const soilCompositionData = [
+                  { 
+                    component: 'Clay', 
+                    percentage: parseFloat(displayData.soilProperties.clayContent) || 0,
+                    color: '#EF4444'
+                  },
+                  { 
+                    component: 'Silt', 
+                    percentage: parseFloat(displayData.soilProperties.siltContent) || 0,
+                    color: '#F59E0B'
+                  },
+                  { 
+                    component: 'Sand', 
+                    percentage: parseFloat(displayData.soilProperties.sandContent) || 0,
+                    color: '#10B981'
+                  }
+                ].filter(item => item.percentage > 0);
+
+                return soilCompositionData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={soilCompositionData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis 
+                        dataKey="component" 
+                        stroke="#9CA3AF"
+                        style={{ fontSize: '14px' }}
+                      />
+                      <YAxis 
+                        stroke="#9CA3AF"
+                        style={{ fontSize: '14px' }}
+                        label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
+                        formatter={(value) => [`${value.toFixed(1)}%`, 'Content']}
+                      />
+                      <Bar dataKey="percentage" radius={[8, 8, 0, 0]}>
+                        {soilCompositionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                    <p className="text-gray-600 dark:text-gray-400">No soil composition data available</p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Runoff Assessment */}
@@ -287,7 +737,7 @@ const Results = () => {
                       Runoff Coefficient
                     </div>
                     <div className="text-6xl font-bold text-blue-500 dark:text-blue-400 mb-2">
-                      {detailedAssessment.runoffAssessment.runoffCoefficient}
+                      {displayData.runoffAssessment.runoffCoefficient}
                     </div>
                   </div>
                 </div>
@@ -298,10 +748,10 @@ const Results = () => {
                     </h3>
                     <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border-l-4 border-yellow-400">
                       <div className="font-bold text-yellow-800 dark:text-yellow-200 mb-2">
-                        {detailedAssessment.interpretation.title}
+                        {displayData.interpretation.title}
                       </div>
                       <div className="text-yellow-700 dark:text-yellow-300 text-sm leading-relaxed">
-                        {detailedAssessment.interpretation.description}
+                        {displayData.interpretation.description}
                       </div>
                     </div>
                   </div>
@@ -349,78 +799,161 @@ const Results = () => {
                   <div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">Area</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {formData.roofArea} sq ft
+                      {displayData.buildingDetails.roofArea} sq ft
                     </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">Slope</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {formData.roofSlope}°
+                      {displayData.buildingDetails.roofSlope}°
                     </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">Material</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
-                      {formData.roofMaterial}
+                      {displayData.buildingDetails.roofMaterial}
                     </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">Efficiency</div>
                     <div className="text-lg font-semibold text-primary-600 dark:text-primary-400">
-                      {results.roofEfficiency}%
+                      {displayData.roofEfficiency}%
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Monthly Collection Chart */}
+              {/* Monthly Collection */}
               <div className="card-glass">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                  Monthly Water Collection Forecast
+                  Monthly Water Collection Pattern
                 </h3>
-                <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Interactive Chart Placeholder
+                <div className="space-y-2">
+                  {displayData.monthlyData && displayData.monthlyData.length > 0 ? (
+                    displayData.monthlyData.map((data, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{data.month}</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                          {data.volume ? `${data.volume.toLocaleString()}L` : 'N/A'}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {data.efficiency ? `${data.efficiency}%` : ''}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                      Monthly data not available
                     </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-                      Monthly collection vs usage data
-                    </p>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === 'recommendations' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {recommendations.map((rec, index) => (
-                <div key={index} className="card-glass">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                      {rec.type}
-                    </h3>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Cost</div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                        {rec.cost}
+            <div className="space-y-8">
+              {/* Groundwater Alert Banner (if critical) */}
+              {displayData.groundwaterStatus && 
+               (displayData.groundwaterStatus.category === 'Over-exploited' || 
+                displayData.groundwaterStatus.category === 'Critical') && (
+                <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-6 rounded-lg">
+                  <div className="flex items-start">
+                    <svg className="w-6 h-6 text-red-500 mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div className="flex-1">
+                      <h4 className="text-lg font-bold text-red-800 dark:text-red-300 mb-2">
+                        ⚠️ Groundwater Alert: {displayData.groundwaterStatus.category} Area
+                      </h4>
+                      <p className="text-red-700 dark:text-red-400 mb-3">
+                        Groundwater extraction is at {displayData.groundwaterStatus.stagePercent}% - 
+                        {displayData.groundwaterStatus.riskLevel} risk level. 
+                        Artificial recharge structures are ESSENTIAL in this area.
+                      </p>
+                      {displayData.groundwaterRecommendations && displayData.groundwaterRecommendations.length > 0 && (
+                        <ul className="list-disc list-inside space-y-1 text-sm text-red-700 dark:text-red-400">
+                          {displayData.groundwaterRecommendations.map((rec, idx) => (
+                            <li key={idx}>{rec}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* System Recommendations */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {displayData.recommendations.map((rec, index) => (
+                  <div key={index} className="card-glass">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                        {rec.type}
+                      </h3>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Cost</div>
+                        <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                          {rec.cost}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Capacity:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{rec.capacity}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {rec.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Groundwater Status Card (always show if available) */}
+              {displayData.groundwaterStatus && (
+                <div className="card-glass">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
+                    <svg className="w-6 h-6 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                    Local Groundwater Status
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Category</div>
+                      <div className={`text-xl font-bold ${
+                        displayData.groundwaterStatus.category === 'Safe' ? 'text-green-600 dark:text-green-400' :
+                        displayData.groundwaterStatus.category === 'Semi-critical' ? 'text-yellow-600 dark:text-yellow-400' :
+                        displayData.groundwaterStatus.category === 'Critical' ? 'text-orange-600 dark:text-orange-400' :
+                        'text-red-600 dark:text-red-400'
+                      }`}>
+                        {displayData.groundwaterStatus.category}
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Extraction Level</div>
+                      <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                        {displayData.groundwaterStatus.stagePercent}%
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Risk Level</div>
+                      <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                        {displayData.groundwaterStatus.riskLevel}
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Capacity:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{rec.capacity}</span>
+                  {displayData.rechargePriority && (
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Recharge Priority: <span className="text-blue-600 dark:text-blue-400 font-bold">{displayData.rechargePriority}</span>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {rec.description}
-                    </p>
-                  </div>
+                  )}
                 </div>
-              ))}
+              )}
             </div>
           )}
 
@@ -428,94 +961,238 @@ const Results = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="card-glass">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                  Rainfall Analysis
+                  Monthly Rainwater Collection
                 </h3>
-                <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mb-4">
-                  <div className="text-center">
-                    <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                    </svg>
-                    <p className="text-gray-600 dark:text-gray-400">Rainfall Pattern Chart</p>
+                {displayData.monthlyData && displayData.monthlyData.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={displayData.monthlyData}>
+                        <defs>
+                          <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis 
+                          dataKey="month" 
+                          stroke="#9CA3AF"
+                          style={{ fontSize: '12px' }}
+                        />
+                        <YAxis 
+                          stroke="#9CA3AF"
+                          style={{ fontSize: '12px' }}
+                          tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
+                          labelStyle={{ color: '#F3F4F6' }}
+                          formatter={(value) => [`${value.toLocaleString()} L`, 'Volume']}
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="volume" 
+                          stroke="#3B82F6" 
+                          fillOpacity={1} 
+                          fill="url(#colorVolume)" 
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                    <div className="grid grid-cols-2 gap-4 text-sm mt-4">
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">Peak Month</div>
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {displayData.monthlyData.reduce((max, month) => 
+                            month.volume > max.volume ? month : max
+                          ).month}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">Lowest Month</div>
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {displayData.monthlyData.reduce((min, month) => 
+                            month.volume < min.volume ? month : min
+                          ).month}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                    <p className="text-gray-600 dark:text-gray-400">No monthly data available</p>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <div className="text-gray-600 dark:text-gray-400">Peak Season</div>
-                    <div className="font-semibold text-gray-900 dark:text-white">Jul-Sep</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600 dark:text-gray-400">Dry Season</div>
-                    <div className="font-semibold text-gray-900 dark:text-white">Apr-May</div>
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="card-glass">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
                   Collection Efficiency
                 </h3>
-                <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mb-4">
-                  <div className="text-center">
-                    <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                    </svg>
-                    <p className="text-gray-600 dark:text-gray-400">Efficiency Breakdown</p>
-                  </div>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Collection Rate:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">85%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">First Flush Loss:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">5%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Evaporation Loss:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">10%</span>
-                  </div>
-                </div>
+                {(() => {
+                  const efficiencyData = [
+                    { name: 'Collected', value: displayData.roofEfficiency || 85, color: '#10B981' },
+                    { name: 'First Flush Loss', value: 5, color: '#F59E0B' },
+                    { name: 'Evaporation Loss', value: 10, color: '#EF4444' }
+                  ];
+                  return (
+                    <>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <PieChart>
+                          <Pie
+                            data={efficiencyData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {efficiencyData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
+                            formatter={(value) => `${value}%`}
+                          />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="space-y-2 text-sm mt-4">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Collection Rate:</span>
+                          <span className="font-semibold text-green-600 dark:text-green-400">{displayData.roofEfficiency}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">First Flush Loss:</span>
+                          <span className="font-semibold text-yellow-600 dark:text-yellow-400">5%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Evaporation Loss:</span>
+                          <span className="font-semibold text-red-600 dark:text-red-400">10%</span>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
 
           {activeTab === 'monitoring' && (
-            <div className="card-glass">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                Monitoring Dashboard Preview
-              </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                      <p className="text-gray-600 dark:text-gray-400">
-                        Real-time Collection Monitoring
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-                        Live data visualization
-                      </p>
+            <div className="space-y-6">
+              <div className="card-glass">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                  Annual Collection Projection
+                </h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    {displayData.monthlyData && displayData.monthlyData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={250}>
+                        <LineChart data={displayData.monthlyData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                          <XAxis 
+                            dataKey="month" 
+                            stroke="#9CA3AF"
+                            style={{ fontSize: '12px' }}
+                          />
+                          <YAxis 
+                            stroke="#9CA3AF"
+                            style={{ fontSize: '12px' }}
+                            tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                          />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
+                            formatter={(value) => [`${value.toLocaleString()} L`, 'Collection']}
+                          />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="volume" 
+                            stroke="#3B82F6" 
+                            strokeWidth={3}
+                            dot={{ fill: '#3B82F6', r: 4 }}
+                            name="Monthly Collection"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                        <p className="text-gray-600 dark:text-gray-400">No projection data available</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-4">
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                      <div className="text-sm text-green-600 dark:text-green-400 font-medium">System Status</div>
+                      <div className="text-lg font-bold text-green-700 dark:text-green-300">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          Ready
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                      <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">Peak Collection</div>
+                      <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                        {displayData.peakMonthly.toLocaleString()}L
+                      </div>
+                    </div>
+                    <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                      <div className="text-sm text-purple-600 dark:text-purple-400 font-medium">Avg Monthly</div>
+                      <div className="text-lg font-bold text-purple-700 dark:text-purple-300">
+                        {displayData.monthlyAverage.toLocaleString()}L
+                      </div>
+                    </div>
+                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg">
+                      <div className="text-sm text-orange-600 dark:text-orange-400 font-medium">Annual Total</div>
+                      <div className="text-lg font-bold text-orange-700 dark:text-orange-300">
+                        {displayData.annualRainwaterPotential.toLocaleString()}L
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                    <div className="text-sm text-green-600 dark:text-green-400 font-medium">System Status</div>
-                    <div className="text-lg font-bold text-green-700 dark:text-green-300">Active</div>
-                  </div>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                    <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">Today's Collection</div>
-                    <div className="text-lg font-bold text-blue-700 dark:text-blue-300">145L</div>
-                  </div>
-                  <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg">
-                    <div className="text-sm text-orange-600 dark:text-orange-400 font-medium">Tank Level</div>
-                    <div className="text-lg font-bold text-orange-700 dark:text-orange-300">78%</div>
-                  </div>
-                </div>
+              </div>
+
+              {/* Environmental Impact Chart */}
+              <div className="card-glass">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                  Environmental Impact Metrics
+                </h3>
+                {(() => {
+                  const impactData = [
+                    { metric: 'Water Saved', value: displayData.waterSaved / 1000, unit: 'kL', color: '#3B82F6' },
+                    { metric: 'Cost Savings', value: displayData.costSavings / 1000, unit: 'k₹', color: '#10B981' },
+                    { metric: 'CO₂ Reduction', value: displayData.co2Reduction, unit: 'kg', color: '#8B5CF6' }
+                  ];
+                  return (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={impactData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis type="number" stroke="#9CA3AF" />
+                        <YAxis 
+                          type="category" 
+                          dataKey="metric" 
+                          stroke="#9CA3AF"
+                          width={120}
+                        />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
+                          formatter={(value, name, props) => [
+                            `${value.toFixed(2)} ${props.payload.unit}`, 
+                            props.payload.metric
+                          ]}
+                        />
+                        <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                          {impactData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -523,7 +1200,10 @@ const Results = () => {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-12">
-          <button className="btn-primary">
+          <button 
+            className="btn-primary"
+            onClick={() => showToast('PDF generation coming soon!', 'info')}
+          >
             Download Report (PDF)
             <svg className="w-5 h-5 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -537,6 +1217,15 @@ const Results = () => {
           </button>
         </div>
       </div>
+      
+      {/* Toast Notification */}
+      {toast.show && (
+        <Toast 
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ show: false, message: '', type: 'info' })}
+        />
+      )}
     </div>
   );
 };

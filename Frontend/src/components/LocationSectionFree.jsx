@@ -461,6 +461,25 @@ const LocationSectionFree = ({ formData, onFormDataChange, onLocationChange }) =
           </div>
         )}
 
+        {/* Annual Rainfall Input */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Annual Rainfall (mm)
+          </label>
+          <input
+            type="number"
+            name="annualRainfall"
+            value={formData.annualRainfall}
+            onChange={onFormDataChange}
+            placeholder="e.g., 1200"
+            className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300"
+            required
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            💡 Tip: This will be auto-filled when you detect or select a location in India
+          </p>
+        </div>
+
         {/* Interactive Map */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

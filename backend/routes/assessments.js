@@ -183,15 +183,7 @@ router.get('/by-assessment-id/:assessmentId', async (req, res) => {
     });
   }
 });
-router.get("/:id", async (req, res) => {
-  try {
-    const doc = await Assessment.findById(req.params.id);
-    if (!doc) return res.status(404).json({ message: "Assessment not found" });
-    res.json(doc);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+
 // @route   GET /api/assessments/:id/status
 // @desc    Get assessment processing status
 // @access  Public
@@ -526,8 +518,8 @@ function generateInfiltrationAnalysis(ksatValue) {
 
 function calculateEnvironmentalImpact(annualCollection) {
   const waterSaved = annualCollection; // liters/year
-  const carbonFootprintReduction = waterSaved * 0.002; // Rough estimate: 2g CO2 per liter
-  const costSavings = waterSaved * 0.02; // ₹0.02 per liter
+  const carbonFootprintReduction = waterSaved * 0.002; // 2g CO2 per liter (treatment + distribution)
+  const costSavings = waterSaved * 0.10; // ₹0.10 per liter (realistic rate including water + sewage charges)
 
   return {
     waterSaved: Math.round(waterSaved),

@@ -28,52 +28,81 @@ class SoilData(BaseModel):
     organic_carbon: float = Field(..., description="Organic carbon content")
     texture_encoded: int = Field(..., description="Encoded soil texture class")
 
+class SoilPredictorConfig:
+    """Configuration for Soil Ksat Predictor"""
+    
+    # Texture encoding mapping (USDA soil texture classification)
+    TEXTURE_ENCODING = {
+        "SANDY LOAMY": 6,
+        "SANDY CLAY": 5,
+        "LOAM": 2,
+        "CLAY LOAM": 1,
+        "CLAY": 0,
+        "SILTY LOAM": 9,
+        "LOAMY SAND": 3,
+        "SILTY CLAY LOAM": 8,
+        "SILTY CLAY": 7,
+        "SAND": 4,
+        "SANDY LOAM": 10,
+        "SANDY CLAY LOAM": 11,
+        "SILT": 12,
+        "Unknown": -1
+    }
+    
+    # SoilGrids API configuration
+    SOILGRIDS_API_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query"
+    SOILGRIDS_DEPTH = "0-5cm"
+    SOILGRIDS_VALUE_TYPE = "mean"
+    
+    # Default soil property values (used as fallback)
+    DEFAULT_SOIL_PROPERTIES = {
+        'sand': 400,  # SoilGrids scale (40%)
+        'silt': 350,  # SoilGrids scale (35%)
+        'clay': 250,  # SoilGrids scale (25%)
+        'ocd': 15     # Organic carbon density
+    }
+    
+    # Ksat bounds (mm/hr)
+    KSAT_MIN = 0.5
+    KSAT_MAX = 350.0
+    
+    # Confidence calculation parameters
+    CONFIDENCE_BASE = 0.8
+    CONFIDENCE_MIN = 0.5
+    CONFIDENCE_MAX = 0.95
+
+
 class SoilPredictor:
     """
     Soil Ksat Predictor using XGBoost model and SoilGrids data
     """
     
-    def __init__(self):
+    def __init__(self, config: Optional[SoilPredictorConfig] = None):
         self.logger = logging.getLogger(__name__)
+        self.config = config or SoilPredictorConfig()
         self.model: Optional[xgb.XGBRegressor] = None
         self.is_model_ready = False
+        self.texture_encoding = self.config.TEXTURE_ENCODING
         
-        # Texture encoding mapping from your ML code
-        self.texture_encoding = {
-            "SANDY LOAMY": 6,
-            "SANDY CLAY": 5,
-            "LOAM": 2,
-            "CLAY LOAM": 1,
-            "CLAY": 0,
-            "SILTY LOAM": 9,
-            "LOAMY SAND": 3,
-            "SILTY CLAY LOAM": 8,
-            "SILTY CLAY": 7,
-            "SAND": 4,
-            "SANDY LOAM": 10,
-            "SANDY CLAY LOAM": 11,
-            "Unknown": -1
-        }
-        
-        # Best hyperparameters from your Optuna optimization
+        # Model hyperparameters (from KSAT.py Optuna optimization)
         self.best_params = {
+            'verbosity': 0,
+            'objective': 'reg:squarederror',
+            'eval_metric': 'rmse',
+            'booster': 'gbtree',
             'max_depth': 8,
             'learning_rate': 0.1,
             'n_estimators': 500,
             'subsample': 0.8,
             'colsample_bytree': 0.8,
-            'gamma': 0.1,
-            'reg_alpha': 1.0,
+            'gamma': 1.0,
+            'reg_alpha': 0.5,
             'reg_lambda': 1.0,
-            'min_child_weight': 3,
-            'objective': 'reg:squarederror',
-            'eval_metric': 'rmse',
+            'min_child_weight': 5,
             'random_state': 42,
             'n_jobs': -1
         }
-        
-        # SoilGrids REST API configuration
-        self.soilgrids_url = "https://rest.isric.org/soilgrids/v2.0/properties/query"
+        self.model_params = None
         
     async def initialize(self):
         """Initialize the predictor with trained model"""
@@ -200,16 +229,15 @@ class SoilPredictor:
     async def get_soil_properties(self, latitude: float, longitude: float) -> Dict[str, Any]:
         """
         Fetch soil properties from SoilGrids API
-        Based on your SoilGrids code
         """
         point = {"lat": latitude, "lon": longitude}
         
-        # Properties to fetch (removed 'bdod' as in your code)
+        # Properties to fetch (no bulk density as per training code)
         properties_to_query = [
-            {"property": "sand", "depth": "0-5cm", "value": "mean"},
-            {"property": "silt", "depth": "0-5cm", "value": "mean"},
-            {"property": "clay", "depth": "0-5cm", "value": "mean"},
-            {"property": "ocd", "depth": "0-5cm", "value": "mean"},  # Organic Carbon Density
+            {"property": "sand", "depth": self.config.SOILGRIDS_DEPTH, "value": self.config.SOILGRIDS_VALUE_TYPE},
+            {"property": "silt", "depth": self.config.SOILGRIDS_DEPTH, "value": self.config.SOILGRIDS_VALUE_TYPE},
+            {"property": "clay", "depth": self.config.SOILGRIDS_DEPTH, "value": self.config.SOILGRIDS_VALUE_TYPE},
+            {"property": "ocd", "depth": self.config.SOILGRIDS_DEPTH, "value": self.config.SOILGRIDS_VALUE_TYPE},
         ]
         
         soil_results = {}
@@ -219,7 +247,7 @@ class SoilPredictor:
                 for prop in properties_to_query:
                     params = {**point, **prop}
                     
-                    async with session.get(self.soilgrids_url, params=params) as response:
+                    async with session.get(self.config.SOILGRIDS_API_URL, params=params) as response:
                         if response.status == 200:
                             data = await response.json()
                             try:
@@ -227,18 +255,23 @@ class SoilPredictor:
                                 if mean_value is not None:
                                     soil_results[prop['property']] = mean_value
                                 else:
-                                    soil_results[prop['property']] = 0
+                                    # Use default value instead of 0 when API returns None
+                                    default_val = self.config.DEFAULT_SOIL_PROPERTIES.get(prop['property'], 0)
+                                    soil_results[prop['property']] = default_val
+                                    self.logger.warning(f"SoilGrids returned None for {prop['property']}, using default: {default_val}")
                             except (KeyError, IndexError):
-                                self.logger.warning(f"Could not extract data for {prop['property']}")
-                                soil_results[prop['property']] = 0
+                                default_val = self.config.DEFAULT_SOIL_PROPERTIES.get(prop['property'], 0)
+                                soil_results[prop['property']] = default_val
+                                self.logger.warning(f"Could not extract data for {prop['property']}, using default: {default_val}")
                         else:
-                            self.logger.warning(f"SoilGrids request failed for {prop['property']}: {response.status}")
-                            soil_results[prop['property']] = 0
+                            default_val = self.config.DEFAULT_SOIL_PROPERTIES.get(prop['property'], 0)
+                            soil_results[prop['property']] = default_val
+                            self.logger.warning(f"SoilGrids request failed for {prop['property']}: {response.status}, using default: {default_val}")
         
         except Exception as e:
             self.logger.error(f"SoilGrids API error: {e}")
             # Use default values if API fails
-            soil_results = {'sand': 400, 'silt': 350, 'clay': 250, 'ocd': 15}
+            soil_results = self.config.DEFAULT_SOIL_PROPERTIES.copy()
         
         return soil_results
     
@@ -294,13 +327,19 @@ class SoilPredictor:
             ksat_prediction = self.model.predict(features)[0]
             
             # Ensure reasonable bounds
-            ksat_prediction = max(1.0, min(300.0, float(ksat_prediction)))
+            ksat_prediction = max(self.config.KSAT_MIN, min(self.config.KSAT_MAX, float(ksat_prediction)))
             
             # Determine soil analysis
             soil_analysis = self._analyze_soil(ksat_prediction, soil_data)
             
-            # Calculate confidence (simplified)
-            confidence = min(0.9, max(0.5, 0.8 - abs(ksat_prediction - 50) / 200))
+            # Calculate confidence based on prediction value
+            confidence = min(
+                self.config.CONFIDENCE_MAX, 
+                max(
+                    self.config.CONFIDENCE_MIN, 
+                    self.config.CONFIDENCE_BASE - abs(ksat_prediction - 50) / 200
+                )
+            )
             
             result = {
                 'ksat': ksat_prediction,

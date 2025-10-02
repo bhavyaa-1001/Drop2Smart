@@ -1,0 +1,322 @@
+{
+  "Delhi": {
+    "East Delhi": {
+      "Gandhi Nagar": {
+        "Annual_Replenishable_GW": 329.620,
+        "Net_Availability": 296.660,
+        "Total_Draft": 245.280,
+        "Stage_Percent": 82.681,
+        "Category": "Semi-critical"
+      },
+      "Preet Vihar": {
+        "Annual_Replenishable_GW": 628.640,
+        "Net_Availability": 565.770,
+        "Total_Draft": 427.860,
+        "Stage_Percent": 75.624,
+        "Category": "Semi-critical"
+      },
+      "Mayur Vihar": {
+        "Annual_Replenishable_GW": 599.570,
+        "Net_Availability": 539.610,
+        "Total_Draft": 578.030,
+        "Stage_Percent": 107.120,
+        "Category": "Over-exploited"
+      }
+    },
+    "New Delhi": {
+      "Delhi Cantonment": {
+        "Annual_Replenishable_GW": 995.340,
+        "Net_Availability": 895.800,
+        "Total_Draft": 1164.980,
+        "Stage_Percent": 130.049,
+        "Category": "Over-exploited"
+      },
+      "Vasant Vihar": {
+        "Annual_Replenishable_GW": 920.990,
+        "Net_Availability": 828.890,
+        "Total_Draft": 1066.540,
+        "Stage_Percent": 128.671,
+        "Category": "Over-exploited"
+      },
+      "Chanakyapuri": {
+        "Annual_Replenishable_GW": 389.580,
+        "Net_Availability": 350.620,
+        "Total_Draft": 448.290,
+        "Stage_Percent": 127.856,
+        "Category": "Over-exploited"
+      }
+    },
+    "North Delhi": {
+      "Narela": {
+        "Annual_Replenishable_GW": 2357.100,
+        "Net_Availability": 2121.390,
+        "Total_Draft": 2514.200,
+        "Stage_Percent": 118.517,
+        "Category": "Over-exploited"
+      },
+      "Alipur": {
+        "Annual_Replenishable_GW": 2177.470,
+        "Net_Availability": 1959.720,
+        "Total_Draft": 1918.610,
+        "Stage_Percent": 97.902,
+        "Category": "Critical"
+      },
+      "Model Town": {
+        "Annual_Replenishable_GW": 613.750,
+        "Net_Availability": 552.380,
+        "Total_Draft": 544.140,
+        "Stage_Percent": 98.508,
+        "Category": "Critical"
+      }
+    },
+    "North East Delhi": {
+      "Seelampur": {
+        "Annual_Replenishable_GW": 609.510,
+        "Net_Availability": 548.560,
+        "Total_Draft": 544.560,
+        "Stage_Percent": 99.271,
+        "Category": "Critical"
+      },
+      "Yamuna Vihar": {
+        "Annual_Replenishable_GW": 190.530,
+        "Net_Availability": 171.470,
+        "Total_Draft": 215.530,
+        "Stage_Percent": 125.695,
+        "Category": "Over-exploited"
+      },
+      "Karawal Nagar": {
+        "Annual_Replenishable_GW": 394.700,
+        "Net_Availability": 355.230,
+        "Total_Draft": 350.600,
+        "Stage_Percent": 98.697,
+        "Category": "Critical"
+      }
+    },
+    "North West Delhi": {
+      "Rohini": {
+        "Annual_Replenishable_GW": 840.250,
+        "Net_Availability": 756.220,
+        "Total_Draft": 520.580,
+        "Stage_Percent": 68.840,
+        "Category": "Safe"
+      },
+      "Kanjhawala": {
+        "Annual_Replenishable_GW": 2244.290,
+        "Net_Availability": 2019.860,
+        "Total_Draft": 1341.540,
+        "Stage_Percent": 66.417,
+        "Category": "Safe"
+      },
+      "Saraswati Vihar": {
+        "Annual_Replenishable_GW": 608.750,
+        "Net_Availability": 547.880,
+        "Total_Draft": 466.060,
+        "Stage_Percent": 85.066,
+        "Category": "Semi-critical"
+      }
+    },
+    "Shahdara": {
+      "Vivek Vihar": {
+        "Annual_Replenishable_GW": 515.560,
+        "Net_Availability": 464.000,
+        "Total_Draft": 511.610,
+        "Stage_Percent": 110.261,
+        "Category": "Over-exploited"
+      },
+      "Shahdara": {
+        "Annual_Replenishable_GW": 433.250,
+        "Net_Availability": 389.930,
+        "Total_Draft": 461.180,
+        "Stage_Percent": 118.273,
+        "Category": "Over-exploited"
+      },
+      "Seemapuri": {
+        "Annual_Replenishable_GW": 540.460,
+        "Net_Availability": 486.410,
+        "Total_Draft": 480.050,
+        "Stage_Percent": 98.692,
+        "Category": "Critical"
+      }
+    },
+    "South Delhi": {
+      "Mehrauli": {
+        "Annual_Replenishable_GW": 850.350,
+        "Net_Availability": 765.310,
+        "Total_Draft": 982.800,
+        "Stage_Percent": 128.419,
+        "Category": "Over-exploited"
+      },
+      "Saket": {
+        "Annual_Replenishable_GW": 1416.100,
+        "Net_Availability": 1274.490,
+        "Total_Draft": 1422.500,
+        "Stage_Percent": 111.613,
+        "Category": "Over-exploited"
+      },
+      "Hauz Khas": {
+        "Annual_Replenishable_GW": 446.770,
+        "Net_Availability": 402.090,
+        "Total_Draft": 514.990,
+        "Stage_Percent": 128.078,
+        "Category": "Over-exploited"
+      }
+    },
+    "South East Delhi": {
+      "Kalkaji": {
+        "Annual_Replenishable_GW": 429.150,
+        "Net_Availability": 386.230,
+        "Total_Draft": 439.730,
+        "Stage_Percent": 113.852,
+        "Category": "Over-exploited"
+      },
+      "Defence Colony": {
+        "Annual_Replenishable_GW": 780.800,
+        "Net_Availability": 702.720,
+        "Total_Draft": 666.120,
+        "Stage_Percent": 94.792,
+        "Category": "Critical"
+      },
+      "Sarita Vihar": {
+        "Annual_Replenishable_GW": 521.730,
+        "Net_Availability": 469.560,
+        "Total_Draft": 536.390,
+        "Stage_Percent": 114.232,
+        "Category": "Over-exploited"
+      }
+    },
+    "West Delhi": {
+      "Punjabi Bagh": {
+        "Annual_Replenishable_GW": 1590.910,
+        "Net_Availability": 1431.820,
+        "Total_Draft": 1251.310,
+        "Stage_Percent": 87.393,
+        "Category": "Semi-critical"
+      },
+      "Patel Nagar": {
+        "Annual_Replenishable_GW": 1347.060,
+        "Net_Availability": 1212.360,
+        "Total_Draft": 1011.700,
+        "Stage_Percent": 83.449,
+        "Category": "Semi-critical"
+      },
+      "Rajouri Garden": {
+        "Annual_Replenishable_GW": 416.050,
+        "Net_Availability": 374.450,
+        "Total_Draft": 476.230,
+        "Stage_Percent": 127.181,
+        "Category": "Over-exploited"
+      }
+    }
+  },
+  "Haryana": {
+    "Jhajjar": {
+      "Bahadurgarh": {
+        "Annual_Replenishable_GW": 8571.820,
+        "Net_Availability": 8143.230,
+        "Total_Draft": 3967.150,
+        "Stage_Percent": 48.717,
+        "Category": "Safe"
+      },
+      "Badli": {
+        "Annual_Replenishable_GW": 3246.670,
+        "Net_Availability": 2922.000,
+        "Total_Draft": 2077.220,
+        "Stage_Percent": 71.089,
+        "Category": "Semi-critical"
+      },
+      "Jhajjar": {
+        "Annual_Replenishable_GW": 5597.030,
+        "Net_Availability": 5037.330,
+        "Total_Draft": 2615.910,
+        "Stage_Percent": 51.930,
+        "Category": "Safe"
+      },
+      "Salhawas": {
+        "Annual_Replenishable_GW": 4497.240,
+        "Net_Availability": 4047.520,
+        "Total_Draft": 1841.460,
+        "Stage_Percent": 45.496,
+        "Category": "Safe"
+      },
+      "Matannail": {
+        "Annual_Replenishable_GW": 5824.200,
+        "Net_Availability": 5241.780,
+        "Total_Draft": 1775.140,
+        "Stage_Percent": 33.865,
+        "Category": "Safe"
+      },
+      "Beri": {
+        "Annual_Replenishable_GW": 7044.250,
+        "Net_Availability": 6692.030,
+        "Total_Draft": 2229.270,
+        "Stage_Percent": 33.312,
+        "Category": "Safe"
+      },
+      "Machhrauli": {
+        "Annual_Replenishable_GW": 2175.140,
+        "Net_Availability": 1957.630,
+        "Total_Draft": 1283.200,
+        "Stage_Percent": 65.549,
+        "Category": "Safe"
+      }
+    },
+    "Sonipat": {
+      "Rai": {
+        "Annual_Replenishable_GW": 4016.700,
+        "Net_Availability": 3815.860,
+        "Total_Draft": 7438.410,
+        "Stage_Percent": 194.934,
+        "Category": "Over-exploited"
+      },
+      "Kharkhoda": {
+        "Annual_Replenishable_GW": 7342.540,
+        "Net_Availability": 6608.290,
+        "Total_Draft": 3996.500,
+        "Stage_Percent": 60.477,
+        "Category": "Safe"
+      },
+      "Murthal": {
+        "Annual_Replenishable_GW": 4632.330,
+        "Net_Availability": 4169.100,
+        "Total_Draft": 8467.310,
+        "Stage_Percent": 203.097,
+        "Category": "Over-exploited"
+      },
+      "Sonipat": {
+        "Annual_Replenishable_GW": 12037.930,
+        "Net_Availability": 10834.140,
+        "Total_Draft": 13768.670,
+        "Stage_Percent": 127.086,
+        "Category": "Over-exploited"
+      },
+      "Mundlana": {
+        "Annual_Replenishable_GW": 12512.040,
+        "Net_Availability": 11886.440,
+        "Total_Draft": 14318.790,
+        "Stage_Percent": 120.463,
+        "Category": "Over-exploited"
+      },
+      "Kathura": {
+        "Annual_Replenishable_GW": 6347.510,
+        "Net_Availability": 6030.130,
+        "Total_Draft": 2674.200,
+        "Stage_Percent": 44.347,
+        "Category": "Safe"
+      },
+      "Ganaur": {
+        "Annual_Replenishable_GW": 7947.860,
+        "Net_Availability": 7153.070,
+        "Total_Draft": 10214.390,
+        "Stage_Percent": 142.797,
+        "Category": "Over-exploited"
+      },
+      "Gohana": {
+        "Annual_Replenishable_GW": 9842.370,
+        "Net_Availability": 8858.130,
+        "Total_Draft": 4590.320,
+        "Stage_Percent": 51.820,
+        "Category": "Safe"
+      }
+    }
+  }
+}

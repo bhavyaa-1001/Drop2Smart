@@ -72,7 +72,9 @@ const Assessment = () => {
           showToast('Image uploaded successfully!', 'success');
         }
       } catch (error) {
-        console.error('Image upload failed:', error);
+        if (import.meta.env.DEV) {
+          console.error('Image upload failed:', error);
+        }
         showToast('Image upload failed. You can still proceed with the assessment.', 'warning');
       } finally {
         setUploadProgress(0);
@@ -89,15 +91,26 @@ const Assessment = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // Handle nested coordinates object
+    if (name === 'coordinates') {
+      setFormData(prev => ({
+        ...prev,
+        coordinates: value
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleLocationChange = (locationData) => {
     // Handle location updates from LocationSection
-    console.log('Location updated:', locationData);
+    if (import.meta.env.DEV) {
+      console.log('Location updated:', locationData);
+    }
   };
   
   // Toast helper function
@@ -113,10 +126,23 @@ const Assessment = () => {
     
     try {
       // Validate required fields
-      if (!formData.roofArea || !formData.roofSlope || !formData.roofMaterial || 
-          !formData.buildingHeight || !formData.location || !formData.annualRainfall ||
-          !formData.coordinates.lat || !formData.coordinates.lng) {
-        showToast('Please fill in all required fields.', 'error');
+      const lat = parseFloat(formData.coordinates.lat);
+      const lng = parseFloat(formData.coordinates.lng);
+      
+      // Check for missing or invalid fields
+      const missingFields = [];
+      if (!formData.roofArea) missingFields.push('Roof Area');
+      if (!formData.roofSlope) missingFields.push('Roof Slope');
+      if (!formData.roofMaterial) missingFields.push('Roof Material');
+      if (!formData.buildingHeight) missingFields.push('Building Height');
+      if (!formData.location) missingFields.push('Location/Address');
+      if (!formData.annualRainfall) missingFields.push('Annual Rainfall');
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        missingFields.push('Valid Coordinates (click on map or use auto-detect)');
+      }
+      
+      if (missingFields.length > 0) {
+        showToast(`Please fill in: ${missingFields.join(', ')}`, 'error');
         setLoading(false);
         return;
       }
@@ -160,7 +186,9 @@ const Assessment = () => {
       }
       
     } catch (error) {
-      console.error('Assessment submission failed:', error);
+      if (import.meta.env.DEV) {
+        console.error('Assessment submission failed:', error);
+      }
       
       if (error instanceof APIError) {
         if (error.code === 'ASSESSMENT_TIMEOUT_ERROR') {
